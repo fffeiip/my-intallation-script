@@ -1,0 +1,62 @@
+---
+- name: Instalar Docker no Linux Mint / Ubuntu
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Remover versões antigas do Docker
+      apt:
+        name: ['docker', 'docker-engine', 'docker.io', 'containerd', 'runc']
+        state: absent
+        purge: yes
+        autoremove: yes
+        update_cache: yes
+
+    - name: Instalar dependências
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+        update_cache: yes
+
+    - name: Criar diretório de chave GPG
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Adicionar chave GPG do Docker
+      shell: |
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+        gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+      args:
+        creates: /etc/apt/keyrings/docker.gpg
+
+    - name: Adicionar repositório do Docker (usando jammy)
+      copy:
+        dest: /etc/apt/sources.list.d/docker.list
+        content: |
+          deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu jammy stable
+
+    - name: Atualizar cache APT
+      apt:
+        update_cache: yes
+
+    - name: Instalar Docker e plugins
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: latest
+
+    - name: Adicionar usuário ao grupo docker
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
