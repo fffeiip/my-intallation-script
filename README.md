@@ -10,13 +10,10 @@ ansible --version
 ```
 
 ## Como executar
-
-Execute o playbook com:
-
-ansible-playbook playbooks/*.yml --ask-become-pass
 > Para logs mais detalhados: usar o -vv
 ```bash
-ansible-playbook playbooks/install_default_tools.yml --ask-become-pass -vv
+ansible-playbook playbooks/*.yml --ask-become-pass
+ansible-playbook playbooks/*.yml --ask-become-pass -vv
 ```
 
 ## Programas instalados
