@@ -1,0 +1,115 @@
+---
+- name: Instalar minhas ferramentas padrão
+  hosts: all
+  become: true
+
+  tasks:
+
+    - name: Atualizar cache APT
+      apt:
+        update_cache: yes
+
+    - name: Instalar dependências comuns
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - software-properties-common
+          - flatpak
+        state: present
+
+    - name: Garante que o Flatpak está disponível no PATH
+      shell: flatpak --version
+      register: flatpak_check
+      retries: 3
+      delay: 5
+      until: flatpak_check.rc == 0
+
+    - name: Adicionar repositório Flathub
+      become: false
+      shell: |
+        flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+      args:
+        creates: /var/lib/flatpak/repo/flathub.trustedkeys.gpg
+
+    # --- VS Code via APT ---
+    - name: Adicionar chave do VS Code
+      shell: |
+        curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/trusted.gpg.d/microsoft.gpg
+      args:
+        creates: /etc/apt/trusted.gpg.d/microsoft.gpg
+
+    - name: Adicionar repositório do VS Code
+      copy:
+        dest: /etc/apt/sources.list.d/vscode.list
+        content: |
+          deb [arch=amd64] https://packages.microsoft.com/repos/code stable main
+
+    - name: Instalar VS Code
+      apt:
+        name: code
+        state: present
+        update_cache: yes
+
+    # --- Spotify via Flatpak ---
+    - name: Instalar Spotify via Flatpak
+      become: false
+      flatpak:
+        name: com.spotify.Client
+        state: present
+        remote: flathub
+
+    # --- Remmina e GIMP via APT ---
+    - name: Instalar Remmina e GIMP
+      apt:
+        name:
+          - remmina
+          - gimp
+        state: present
+
+    # --- Telegram via Flatpak ---
+    - name: Instalar Telegram via Flatpak
+      become: false
+      flatpak:
+        name: org.telegram.desktop
+        state: present
+        remote: flathub
+
+    # --- ZSH + Oh My Zsh ---
+    - name: Verificar shell atual do usuário
+      become: false
+      shell: echo $SHELL
+      register: current_shell
+
+    - name: Exibir shell atual
+      debug:
+        msg: "Shell atual: {{ current_shell.stdout }}"
+
+    - name: Definir Zsh como shell padrão do usuário (caso ainda não esteja)
+      become: true
+      shell: |
+        user="{{ ansible_env.SUDO_USER | default(ansible_env.USER) }}"
+        current_shell=$(getent passwd "$user" | cut -d: -f7)
+        zsh_path=$(which zsh)
+        if [ "$current_shell" != "$zsh_path" ]; then
+          chsh -s "$zsh_path" "$user"
+        fi
+      args:
+        executable: /bin/bash
+
+
+    - name: Instalação concluída
+      debug:
+        msg: >
+          Instalação finalizada. Se o Zsh ainda não aparecer como padrão, feche e reabra o terminal
+          ou faça logout/login para aplicar a mudança de shell.
+
+    # --- GitKraken via Flatpak (último) ---
+    - name: Instalar GitKraken via Flatpak
+      become: false
+      flatpak:
+        name: com.axosoft.GitKraken
+        state: present
+        remote: flathub
